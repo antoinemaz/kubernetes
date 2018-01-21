@@ -1,0 +1,57 @@
+Kubernetes sur Windows :
+
+--> Avant tout, il faut installer Docker For Windows : si Windows 10 familial,
+installer Docker Toolbox
+
+--> Ensuite, on peut installer Minikube (kubectl + minikube)
+
+Le mieux est de mettre kubectl dans le dossier minikube, puis d'ajouter la variable d'environnement pointant vers le dossier de ces deux outils
+
+Il faut ensuite connecter Docker de notre Windows, pointant via une docker-machine au Docker de minikube, pour cela, exécuter les commandes suivantes (lesquelles sont les bonnes, a voir
+il faut les taper les une apres les autres, suivi d'un docker ps pour determiner laquelle fait fonctionner la liaison) :
+minikube ssh
+minikube docker-env
+@FOR /f "tokens=*" %i IN ('minikube docker-env') DO @%i
+
+
+Puis tester : lire ici : https://kubernetes.io/docs/getting-started-guides/minikube/
+
+On peut suivre l'exemple ici : voir le dépot Git aussi : https://piotrminkowski.wordpress.com/2017/03/31/microservices-with-kubernetes-and-docker/
+
+Attention, si on veut créer des images, il va falloir utiliser une registry d'images Docker intégré à la VM Minikube, pour cela :
+
+minikube start --vm-driver=virtualbox --insecure-registry="192.168.99.100:5000"
+Cette commande va pointer vers la registry de la VM
+
+On peut ouvrir le dashboard : minikube dashboard
+
+docker run -d -p 5000:5000 --net=host --restart=always --name registry registry:2 
+cette commande va installer une registry locale
+
+docker build -t demo .
+Pour créeer notre image
+
+docker tag demo localhost:5000/demo
+pour tagger l'image : When the first part of the tag is a hostname and port, Docker interprets this as the location of a registry
+
+docker push localhost:5000/demo
+On envoie l'image dans notre registry locale
+
+kubectl create -f demo-deploy.json : avec à la fin :
+
+      containers:
+      - name: demo
+        image: localhost:5000/demo
+
+Pour bien pointer vers la registry locale
+
+Exposer rapidement un service à partir d'un déploiement : kubectl expose deployment demo-deployment --type=NodePort
+
+Puis pour accéder à l'application : minikube service demo-deployment : ouvrira un navigateur 
+
+- Ingress : voir le fichier dans le projet demo, commande : kubectl create -f ingress.json 
+Il faut Bien penser à modifier le host windows, exemple : 192.168.99.100 foo.bar.com puis tester foo.bar.com/foo dans le navigateur
+
+Pour controller la santé des noeuds : minikube addons enable heapster
+
+Ensuite via minikube dashboard, on peut voir la CPU et la mémoire par pod
